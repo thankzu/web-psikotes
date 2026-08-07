@@ -18,6 +18,12 @@ db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
+@login_manager.user_loader
+def load_user(user_id):
+    if user_id == 'admin':
+        from app import Admin
+        return Admin('admin')
+    return None
 
 # ==================== MODEL ====================
 

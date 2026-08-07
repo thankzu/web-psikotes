@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tes KMSP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-4">
+        <h2 class="mb-4">🔥 Tes KMSP</h2>
+        <p class="text-muted">Urutkan 1-4 (1 = paling sesuai, 4 = paling tidak sesuai).</p>
+        <form method="POST" action="/kmsp">
+            <input type="hidden" name="pegawai_id" value="{{ pegawai_id }}">
+            {% for item in soal %}
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <strong>Pernyataan {{ item.nomor }}</strong>
+                </div>
+                <div class="card-body">
+                    {% for pilihan in item.pilihan %}
+                    <div class="form-check">
+                        <input type="radio" name="kmsp_{{ item.nomor }}" value="{{ loop.index }}" class="form-check-input" required>
+                        <label class="form-check-label">{{ loop.index }}. {{ pilihan }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">Submit</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tes DISC</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-4">
+        <h2 class="mb-4">📊 Tes DISC</h2>
+        <p class="text-muted">Isi data diri dan pilih jawaban yang paling menggambarkan Anda.</p>
+        
+        <form method="POST">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Nama Lengkap</label>
+                            <input type="text" name="nama" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Usia</label>
+                            <input type="number" name="usia" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Jenis Kelamin</label>
+                            <select name="jenis_kelamin" class="form-select">
+                                <option value="">Pilih...</option>
+                                <option value="Laki-laki">Laki-laki</option>
+                                <option value="Perempuan">Perempuan</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% for item in soal %}
+            <div class="card mb-2">
+                <div class="card-header bg-light">
+                    <strong>Nomor {{ item.nomor }}</strong>
+                </div>
+                <div class="card-body">
+                    {% for pilihan in item.pilihan %}
+                    <div class="form-check">
+                        <input type="radio" name="p_{{ item.nomor }}" value="{{ loop.index }}" class="form-check-input" required>
+                        <label class="form-check-label">{{ pilihan }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">Submit</button>
+        </form>
+    </div>
+</body>
+</html>

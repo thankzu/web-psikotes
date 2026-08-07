@@ -189,13 +189,21 @@ def disc_form():
         return redirect(url_for('mbti_form', pegawai_id=pegawai.id))
     return render_template('disc_form.html', soal=DISC_SOAL)
 
-@app.route('/mbti')
+@app.route('/mbti', methods=['GET', 'POST'])
 def mbti_form():
+    if request.method == 'POST':
+        pegawai_id = request.form.get('pegawai_id')
+        return redirect(url_for('kmsp_form', pegawai_id=pegawai_id))
+    
     pegawai_id = request.args.get('pegawai_id')
     return render_template('mbti_form.html', pegawai_id=pegawai_id, soal=MBTI_SOAL)
 
-@app.route('/kmsp')
+@app.route('/kmsp', methods=['GET', 'POST'])
 def kmsp_form():
+    if request.method == 'POST':
+        pegawai_id = request.form.get('pegawai_id')
+        return redirect(url_for('success'))
+    
     pegawai_id = request.args.get('pegawai_id')
     return render_template('kmsp_form.html', pegawai_id=pegawai_id, soal=KMSP_SOAL)
 

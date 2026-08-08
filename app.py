@@ -133,6 +133,24 @@ def disc_form():
         db.session.add(pegawai)
         db.session.commit()
         
+        # Simpan jawaban DISC (P dan K)
+        for i in range(1, 25):
+            p_key = f'p_{i}'
+            k_key = f'k_{i}'
+            p_value = request.form.get(p_key)
+            k_value = request.form.get(k_key)
+            
+            if p_value and k_value:
+                jawaban = JawabanDISC(
+                    pegawai_id=pegawai.id,
+                    nomor=i,
+                    pilihan_p=int(p_value),
+                    pilihan_k=int(k_value)
+                )
+                db.session.add(jawaban)
+        
+        db.session.commit()
+        
         return redirect(url_for('mbti_form', pegawai_id=pegawai.id))
     return render_template('disc_form.html', soal=DISC_SOAL)
 

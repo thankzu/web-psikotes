@@ -4,7 +4,6 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from datetime import datetime
 import os
 import io
-import pandas as pd
 
 app = Flask(__name__)
 app.secret_key = 'rahasia12345'
@@ -205,34 +204,41 @@ def admin_dashboard():
 @app.route('/admin/export')
 @login_required
 def export_excel():
-    # Ambil semua data
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Data Pegawai"
+    
+    # Header
+    headers = ['ID', 'Nama', 'Usia', 'Jenis Kelamin', 'Tanggal Tes']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data
     pegawai_list = Pegawai.query.all()
-    
-    # Buat list data
-    data = []
+    row = 2
     for p in pegawai_list:
-        data.append({
-            'ID': p.id,
-            'Nama': p.nama,
-            'Usia': p.usia,
-            'Jenis Kelamin': p.jenis_kelamin,
-            'Tanggal Tes': p.tanggal_tes,
-        })
+        ws.cell(row=row, column=1, value=p.id)
+        ws.cell(row=row, column=2, value=p.nama)
+        ws.cell(row=row, column=3, value=p.usia)
+        ws.cell(row=row, column=4, value=p.jenis_kelamin)
+        ws.cell(row=row, column=5, value=p.tanggal_tes)
+        row += 1
     
-    # Buat DataFrame
-    df = pd.DataFrame(data)
-    
-    # Simpan ke Excel
+    # Simpan
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Data Pegawai', index=False)
-    
+    wb.save(output)
     output.seek(0)
+    
     return send_file(
         output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'data_pegawai_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        download_filename=f'data_pegawai_{datetime.now().strftime("%Y%m%d")}.xlsx'
     )
 
 # ==================== RUN ====================

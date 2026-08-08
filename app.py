@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
@@ -9,7 +9,7 @@ from utils.scoring import *
 app = Flask(__name__)
 app.secret_key = 'rahasia12345'
 
-# Konfigurasi database
+# Database
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "database", "psikotes.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -18,12 +18,6 @@ db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
-@login_manager.user_loader
-def load_user(user_id):
-    if user_id == 'admin':
-        from app import Admin
-        return Admin('admin')
-    return None
 
 # ==================== MODEL ====================
 
@@ -34,51 +28,6 @@ class Pegawai(db.Model):
     usia = db.Column(db.Integer)
     jenis_kelamin = db.Column(db.String(20))
     tanggal_tes = db.Column(db.String(50))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    hasil_disc = db.relationship('HasilDISC', backref='pegawai', uselist=False)
-    hasil_mbti = db.relationship('HasilMBTI', backref='pegawai', uselist=False)
-    hasil_kmsp = db.relationship('HasilKMSP', backref='pegawai', uselist=False)
-
-class HasilDISC(db.Model):
-    __tablename__ = 'hasil_disc'
-    id = db.Column(db.Integer, primary_key=True)
-    pegawai_id = db.Column(db.Integer, db.ForeignKey('pegawai.id'))
-    d = db.Column(db.Integer, default=0)
-    i = db.Column(db.Integer, default=0)
-    s = db.Column(db.Integer, default=0)
-    c = db.Column(db.Integer, default=0)
-    tipe_public = db.Column(db.String(50))
-    tipe_private = db.Column(db.String(50))
-    tipe_mirror = db.Column(db.String(50))
-    tipe_gabungan = db.Column(db.String(50))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class HasilMBTI(db.Model):
-    __tablename__ = 'hasil_mbti'
-    id = db.Column(db.Integer, primary_key=True)
-    pegawai_id = db.Column(db.Integer, db.ForeignKey('pegawai.id'))
-    e = db.Column(db.Integer, default=0)
-    i = db.Column(db.Integer, default=0)
-    s = db.Column(db.Integer, default=0)
-    n = db.Column(db.Integer, default=0)
-    t = db.Column(db.Integer, default=0)
-    f = db.Column(db.Integer, default=0)
-    j = db.Column(db.Integer, default=0)
-    p = db.Column(db.Integer, default=0)
-    tipe_mbti = db.Column(db.String(10))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class HasilKMSP(db.Model):
-    __tablename__ = 'hasil_kmsp'
-    id = db.Column(db.Integer, primary_key=True)
-    pegawai_id = db.Column(db.Integer, db.ForeignKey('pegawai.id'))
-    skor_k = db.Column(db.Integer, default=0)
-    skor_m = db.Column(db.Integer, default=0)
-    skor_s = db.Column(db.Integer, default=0)
-    skor_p = db.Column(db.Integer, default=0)
-    temperamen = db.Column(db.String(10))
-    nama_temperamen = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class JawabanDISC(db.Model):
@@ -144,14 +93,6 @@ DISC_SOAL = [
     {"nomor": 24, "pilihan": ["Dapat diandalkan, Dapat dipercaya", "Kreatif, Unik", "Garis dasar, Orientasi hasil", "Jalankan standar yang tinggi, Akurat"]}
 ]
 
-MBTI_SOAL = []
-for i in range(1, 61):
-    MBTI_SOAL.append({"nomor": i, "A": f"Pernyataan A untuk nomor {i}", "B": f"Pernyataan B untuk nomor {i}"})
-
-KMSP_SOAL = []
-for i in range(1, 9):
-    KMSP_SOAL.append({"nomor": i, "pilihan": [f"Pilihan {j+1} untuk pernyataan {i}" for j in range(4)]})
-
 # ==================== ROUTES ====================
 
 @app.route('/')
@@ -200,18 +141,15 @@ def mbti_form():
     if request.method == 'POST':
         pegawai_id = request.form.get('pegawai_id')
         return redirect(url_for('kmsp_form', pegawai_id=pegawai_id))
-    
     pegawai_id = request.args.get('pegawai_id')
-    return render_template('mbti_form.html', pegawai_id=pegawai_id, soal=MBTI_SOAL)
+    return render_template('mbti_form.html', pegawai_id=pegawai_id)
 
 @app.route('/kmsp', methods=['GET', 'POST'])
 def kmsp_form():
     if request.method == 'POST':
-        pegawai_id = request.form.get('pegawai_id')
         return redirect(url_for('success'))
-    
     pegawai_id = request.args.get('pegawai_id')
-    return render_template('kmsp_form.html', pegawai_id=pegawai_id, soal=KMSP_SOAL)
+    return render_template('kmsp_form.html', pegawai_id=pegawai_id)
 
 @app.route('/success')
 def success():
@@ -222,12 +160,6 @@ def success():
 def admin_dashboard():
     pegawai_list = Pegawai.query.order_by(Pegawai.created_at.desc()).all()
     return render_template('admin_dashboard.html', pegawai_list=pegawai_list)
-
-@app.route('/admin/<int:pegawai_id>')
-@login_required
-def admin_detail(pegawai_id):
-    pegawai = Pegawai.query.get_or_404(pegawai_id)
-    return render_template('admin_detail.html', pegawai=pegawai)
 
 # ==================== RUN ====================
 

@@ -4,6 +4,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from datetime import datetime
 import os
 import io
+import pandas as pd
 
 app = Flask(__name__)
 app.secret_key = 'rahasia12345'
@@ -17,6 +18,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
+# ==================== MODEL ====================
 class Pegawai(db.Model):
     __tablename__ = 'pegawai'
     id = db.Column(db.Integer, primary_key=True)
@@ -26,6 +28,29 @@ class Pegawai(db.Model):
     tanggal_tes = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class JawabanDISC(db.Model):
+    __tablename__ = 'jawaban_disc'
+    id = db.Column(db.Integer, primary_key=True)
+    pegawai_id = db.Column(db.Integer, db.ForeignKey('pegawai.id'))
+    nomor = db.Column(db.Integer)
+    pilihan_p = db.Column(db.Integer)
+    pilihan_k = db.Column(db.Integer)
+
+class JawabanMBTI(db.Model):
+    __tablename__ = 'jawaban_mbti'
+    id = db.Column(db.Integer, primary_key=True)
+    pegawai_id = db.Column(db.Integer, db.ForeignKey('pegawai.id'))
+    nomor = db.Column(db.Integer)
+    pilihan = db.Column(db.String(1))
+
+class JawabanKMSP(db.Model):
+    __tablename__ = 'jawaban_kmsp'
+    id = db.Column(db.Integer, primary_key=True)
+    pegawai_id = db.Column(db.Integer, db.ForeignKey('pegawai.id'))
+    pernyataan_id = db.Column(db.Integer)
+    urutan = db.Column(db.Integer)
+
+# ==================== AUTH ====================
 class Admin(UserMixin):
     def __init__(self, id):
         self.id = id
@@ -36,9 +61,46 @@ def load_user(user_id):
         return Admin('admin')
     return None
 
+# ==================== DATA SOAL DARI EXCEL ====================
+DISC_SOAL = [
+    {"nomor": 1, "pilihan": ["Gampangan, Mudah setuju", "Percaya, Mudah percaya pada orang", "Petualang, Mengambil resiko", "Toleran, Menghormati"]},
+    {"nomor": 2, "pilihan": ["Hasil adalah penting", "Lakukan dengan benar, Akurasi penting", "Dibuat menyenangkan", "Mari kerjakan bersama"]},
+    {"nomor": 3, "pilihan": ["Pendidikan, Kebudayaan", "Prestasi, Ganjaran", "Keselamatan, keamanan", "Sosial, Perkumpulan kelompok"]},
+    {"nomor": 4, "pilihan": ["Lembut suara, Pendiam", "Optimistik, Visioner", "Pusat Perhatian, Suka gaul", "Pendamai, Membawa Harmoni"]},
+    {"nomor": 5, "pilihan": ["Akan berjalan terus tanpa kontrol diri", "Akan membeli sesuai dorongan hati", "Akan menunggu, Tanpa tekanan", "Akan mengusahakan yang kuinginkan"]},
+    {"nomor": 6, "pilihan": ["Memimpin, Pendekatan langsung", "Suka bergaul, Antusias", "Dapat diramal, Konsisten", "Waspada, Hati-hati"]},
+    {"nomor": 7, "pilihan": ["Menyemangati orang", "Berusaha sempurna", "Bagian dari kelompok", "Ingin membuat tujuan"]},
+    {"nomor": 8, "pilihan": ["Ramah, Mudah bergabung", "Unik, Bosan rutinitas", "Aktif mengubah sesuatu", "Ingin hal-hal yang pasti"]},
+    {"nomor": 9, "pilihan": ["Tidak mudah dikalahkan", "Kerjakan sesuai perintah, Ikut pimpinan", "Mudah terangsang, Riang", "Ingin segalanya teratur, Rapi"]},
+    {"nomor": 10, "pilihan": ["Menjadi frustrasi", "Menyimpan perasaan saya", "Menceritakan sisi saya", "Siap beroposisi"]},
+    {"nomor": 11, "pilihan": ["Non-konfrontasi, Menyerah", "Dipenuhi hal detail", "Perubahan pada menit terakhir", "Menuntut, Kasar"]},
+    {"nomor": 12, "pilihan": ["Saya akan pimpin mereka", "Saya akan melaksanakan", "Saya akan meyakinkan mereka", "Saya dapatkan fakta"]},
+    {"nomor": 13, "pilihan": ["Hidup, Suka bicara", "Gerak cepat, Tekun", "Usaha menjaga keseimbangan", "Usaha mengikuti aturan"]},
+    {"nomor": 14, "pilihan": ["Ingin kemajuan", "Puas dengan segalanya", "Terbuka memperlihatkan perasaan", "Rendah hati, Sederhana"]},
+    {"nomor": 15, "pilihan": ["Memikirkan orang dahulu", "Kompetitif, Suka tantangan", "Optimis, Positif", "Pemikir logis, Sistematik"]},
+    {"nomor": 16, "pilihan": ["Kelola waktu secara efisien", "Sering terburu-buru, Merasa tertekan", "Masalah sosial itu penting", "Suka selesaikan apa yang saya mulai"]},
+    {"nomor": 17, "pilihan": ["Tenang, Pendiam", "Bahagia, Tanpa beban", "Menyenangkan, Baik hati", "Tak gentar, Berani"]},
+    {"nomor": 18, "pilihan": ["Menyenangkan orang, Mudah setuju", "Tertawa lepas, Hidup", "Berani, Tak gentar", "Tenang, Pendiam"]},
+    {"nomor": 19, "pilihan": ["Tolak perubahan mendadak", "Cenderung janji berlebihan", "Tarik diri di tengah tekanan", "Tidak takut bertempur"]},
+    {"nomor": 20, "pilihan": ["Menggunakan waktu berkualitas dgn teman", "Rencanakan masa depan, Bersiap", "Bepergian demi petualangan baru", "Menerima ganjaran atas tujuan yg dicapai"]},
+    {"nomor": 21, "pilihan": ["Ingin otoritas lebih", "Ingin kesempatan baru", "Menghindari konflik", "Ingin petunjuk yang jelas"]},
+    {"nomor": 22, "pilihan": ["Penyemangat yang baik", "Pendengar yang baik", "Penganalisa yang baik", "Delegator yang baik"]},
+    {"nomor": 23, "pilihan": ["Aturan perlu dipertanyakan", "Aturan membuat adil", "Aturan membuat bosan", "Aturan membuat aman"]},
+    {"nomor": 24, "pilihan": ["Dapat diandalkan, Dapat dipercaya", "Kreatif, Unik", "Garis dasar, Orientasi hasil", "Jalankan standar yang tinggi, Akurat"]}
+]
+
+MBTI_SOAL = []
+for i in range(1, 61):
+    MBTI_SOAL.append({"nomor": i, "A": f"Pernyataan A untuk nomor {i}", "B": f"Pernyataan B untuk nomor {i}"})
+
+KMSP_SOAL = []
+for i in range(1, 9):
+    KMSP_SOAL.append({"nomor": i, "pilihan": [f"Pilihan {j+1} untuk pernyataan {i}" for j in range(4)]})
+
+# ==================== ROUTES ====================
 @app.route('/')
 def index():
-    return '<h1>🧠 Psikotes Online</h1><p>Silakan <a href="/disc">isi tes DISC</a></p>'
+    return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def admin_login():
@@ -46,38 +108,17 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         if username == 'admin' and password == 'psikotes2026':
-            from flask_login import login_user
             user = Admin('admin')
             login_user(user)
             return redirect(url_for('admin_dashboard'))
-        return '<h1>Login Gagal!</h1><a href="/login">Coba lagi</a>'
-    return '''
-    <h1>🔐 Login Admin</h1>
-    <form method="POST">
-        <input type="text" name="username" placeholder="Username" required><br>
-        <input type="password" name="password" placeholder="Password" required><br>
-        <button type="submit">Login</button>
-    </form>
-    '''
+        return render_template('login.html', error='Username atau password salah!')
+    return render_template('login.html')
 
 @app.route('/logout')
+@login_required
 def admin_logout():
-    from flask_login import logout_user
     logout_user()
     return redirect(url_for('index'))
-
-@app.route('/admin')
-def admin_dashboard():
-    from flask_login import login_required, current_user
-    @login_required
-    def protected():
-        pegawai_list = Pegawai.query.order_by(Pegawai.created_at.desc()).all()
-        html = '<h1>📊 Dashboard Admin</h1><table border="1"><tr><th>ID</th><th>Nama</th><th>Usia</th><th>JK</th><th>Tanggal</th></tr>'
-        for p in pegawai_list:
-            html += f'<tr><td>{p.id}</td><td>{p.nama}</td><td>{p.usia or "-"}</td><td>{p.jenis_kelamin or "-"}</td><td>{p.tanggal_tes or "-"}</td></tr>'
-        html += '</table><a href="/logout">Logout</a>'
-        return html
-    return protected()
 
 @app.route('/disc', methods=['GET', 'POST'])
 def disc_form():
@@ -85,6 +126,7 @@ def disc_form():
         nama = request.form.get('nama')
         usia = request.form.get('usia', 0)
         jenis_kelamin = request.form.get('jenis_kelamin')
+        
         pegawai = Pegawai(
             nama=nama,
             usia=usia,
@@ -93,23 +135,107 @@ def disc_form():
         )
         db.session.add(pegawai)
         db.session.commit()
-        return f'<h1>✅ Berhasil!</h1><p>Terima kasih {nama}, data sudah disimpan.</p><a href="/">Kembali</a>'
-    
-    html = '''
-    <h1>📊 Tes DISC</h1>
-    <form method="POST">
-        <input type="text" name="nama" placeholder="Nama" required><br>
-        <input type="number" name="usia" placeholder="Usia"><br>
-        <select name="jenis_kelamin">
-            <option value="">Pilih...</option>
-            <option value="Laki-laki">Laki-laki</option>
-            <option value="Perempuan">Perempuan</option>
-        </select><br><br>
-        <button type="submit">Submit</button>
-    </form>
-    '''
-    return html
+        
+        # Simpan jawaban DISC
+        for i in range(1, 25):
+            p_key = f'p_{i}'
+            k_key = f'k_{i}'
+            if p_key in request.form and k_key in request.form:
+                jawaban = JawabanDISC(
+                    pegawai_id=pegawai.id,
+                    nomor=i,
+                    pilihan_p=int(request.form[p_key]),
+                    pilihan_k=int(request.form[k_key])
+                )
+                db.session.add(jawaban)
+        db.session.commit()
+        
+        return redirect(url_for('mbti_form', pegawai_id=pegawai.id))
+    return render_template('disc_form.html', soal=DISC_SOAL)
 
+@app.route('/mbti', methods=['GET', 'POST'])
+def mbti_form():
+    if request.method == 'POST':
+        pegawai_id = request.form.get('pegawai_id')
+        for i in range(1, 61):
+            key = f'mbti_{i}'
+            if key in request.form:
+                jawaban = JawabanMBTI(
+                    pegawai_id=pegawai_id,
+                    nomor=i,
+                    pilihan=request.form[key]
+                )
+                db.session.add(jawaban)
+        db.session.commit()
+        return redirect(url_for('kmsp_form', pegawai_id=pegawai_id))
+    
+    pegawai_id = request.args.get('pegawai_id')
+    return render_template('mbti_form.html', pegawai_id=pegawai_id, soal=MBTI_SOAL)
+
+@app.route('/kmsp', methods=['GET', 'POST'])
+def kmsp_form():
+    if request.method == 'POST':
+        pegawai_id = request.form.get('pegawai_id')
+        for i in range(1, 9):
+            key = f'kmsp_{i}'
+            if key in request.form:
+                jawaban = JawabanKMSP(
+                    pegawai_id=pegawai_id,
+                    pernyataan_id=i,
+                    urutan=int(request.form[key])
+                )
+                db.session.add(jawaban)
+        db.session.commit()
+        return redirect(url_for('success'))
+    
+    pegawai_id = request.args.get('pegawai_id')
+    return render_template('kmsp_form.html', pegawai_id=pegawai_id, soal=KMSP_SOAL)
+
+@app.route('/success')
+def success():
+    return render_template('success.html')
+
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    pegawai_list = Pegawai.query.order_by(Pegawai.created_at.desc()).all()
+    return render_template('admin_dashboard.html', pegawai_list=pegawai_list)
+
+# ==================== FITUR DOWNLOAD EXCEL ====================
+@app.route('/admin/export')
+@login_required
+def export_excel():
+    # Ambil semua data
+    pegawai_list = Pegawai.query.all()
+    
+    # Buat list data
+    data = []
+    for p in pegawai_list:
+        data.append({
+            'ID': p.id,
+            'Nama': p.nama,
+            'Usia': p.usia,
+            'Jenis Kelamin': p.jenis_kelamin,
+            'Tanggal Tes': p.tanggal_tes,
+        })
+    
+    # Buat DataFrame
+    df = pd.DataFrame(data)
+    
+    # Simpan ke Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Data Pegawai', index=False)
+    
+    output.seek(0)
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'data_pegawai_{datetime.now().strftime("%Y%m%d")}.xlsx'
+    )
+
+# ==================== RUN ====================
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

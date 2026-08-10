@@ -1,5 +1,9 @@
 {
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "BUILDPACKS"
+  },
+  "deploy": {
+    "startCommand": "gunicorn app:app",
+    "restartPolicyType": "ON_FAILURE"
   }
 }
